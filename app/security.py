@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -58,10 +59,20 @@ def verify_password(password: str, password_hash: str) -> bool:
     return hmac.compare_digest(expected.hex(), digest_hex)
 
 
+async def hash_password_async(password: str) -> str:
+    return await asyncio.to_thread(hash_password, password)
+
+
+async def verify_password_async(password: str, password_hash: str) -> bool:
+    return await asyncio.to_thread(verify_password, password, password_hash)
+
+
 def create_access_token(user: User, settings: Settings) -> str:
     now = datetime.now(tz=UTC)
     payload = {
         "sub": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
         "role": user.role.value,
         "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
         "iat": now,
@@ -96,24 +107,40 @@ def require_roles(*roles: UserRole):
             token = extract_bearer_token(request)
             payload = decode_access_token(token, request.app.ctx.settings)
             user_id = payload.get("sub")
+            email = payload.get("email")
+            full_name = payload.get("full_name")
+            role_value = payload.get("role")
 
             if user_id is None:
                 raise ApiError(status=401, message="Invalid access token payload")
 
-            async with request.app.ctx.session_factory() as session:
-                user = await session.get(User, int(user_id))
+            if role_value is None:
+                raise ApiError(status=401, message="Invalid access token payload")
 
-            if user is None:
-                raise ApiError(status=401, message="User from token was not found")
+            try:
+                role = UserRole(role_value)
+            except ValueError as exc:
+                raise ApiError(status=401, message="Invalid access token payload") from exc
 
-            if allowed_roles and user.role.value not in allowed_roles:
+            if email is None or full_name is None:
+                async with request.app.ctx.session_factory() as session:
+                    user = await session.get(User, int(user_id))
+
+                if user is None:
+                    raise ApiError(status=401, message="User from token was not found")
+
+                email = user.email
+                full_name = user.full_name
+                role = user.role
+
+            if allowed_roles and role.value not in allowed_roles:
                 raise ApiError(status=403, message="You do not have permission to access this resource")
 
             request.ctx.current_user = AuthContext(
-                user_id=user.id,
-                email=user.email,
-                full_name=user.full_name,
-                role=user.role,
+                user_id=int(user_id),
+                email=email,
+                full_name=full_name,
+                role=role,
             )
             return await handler(request, *args, **kwargs)
 
@@ -132,4 +159,3 @@ def build_webhook_signature(payload: dict[str, object], secret_key: str) -> str:
     ]
     raw_value = "".join(signature_parts)
     return hashlib.sha256(raw_value.encode("utf-8")).hexdigest()
-

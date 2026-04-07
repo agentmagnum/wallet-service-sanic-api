@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -82,6 +82,9 @@ class Account(TimestampMixin, Base):
 
 class Payment(Base):
     __tablename__ = "payments"
+    __table_args__ = (
+        Index("ix_payments_user_created_id", "user_id", "created_at", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     transaction_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)

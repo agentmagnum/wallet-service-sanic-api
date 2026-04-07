@@ -7,12 +7,14 @@ from app.api import admin_blueprint, auth_blueprint, user_blueprint, webhook_blu
 from app.config import get_settings
 from app.db import create_engine_and_session_factory
 from app.errors import register_error_handlers
+from app.rate_limit import InMemoryRateLimiter
 
 
 def create_app() -> Sanic:
     settings = get_settings()
     app = Sanic(settings.app_name)
     app.ctx.settings = settings
+    app.ctx.rate_limiter = InMemoryRateLimiter()
 
     @app.before_server_start
     async def setup_database(app: Sanic):

@@ -6,8 +6,9 @@ from sanic import Blueprint, empty, json
 
 from app.errors import ApiError
 from app.models import User, UserRole
+from app.pagination import parse_pagination
 from app.schemas import UserCreateRequest, UserUpdateRequest
-from app.security import hash_password, require_roles
+from app.security import hash_password_async, require_roles
 from app.utils import format_money, parse_payload
 
 admin_blueprint = Blueprint("admin", url_prefix="/api/v1/admin")
@@ -32,6 +33,8 @@ def _serialize_user(user: User) -> dict[str, object]:
 @admin_blueprint.get("/users")
 @require_roles(UserRole.ADMIN)
 async def list_users(request):
+    pagination = parse_pagination(request, default_limit=100, max_limit=500)
+
     async with request.app.ctx.session_factory() as session:
         query = (
             select(User)
@@ -39,9 +42,16 @@ async def list_users(request):
             .where(User.role == UserRole.USER)
             .order_by(User.id.asc())
         )
+        if pagination.limit is not None:
+            query = query.offset(pagination.offset).limit(pagination.limit)
         users = list(await session.scalars(query))
 
-    return json({"items": [_serialize_user(user) for user in users]})
+    return json(
+        {
+            "items": [_serialize_user(user) for user in users],
+            "pagination": pagination.to_meta(returned_count=len(users)),
+        }
+    )
 
 
 @admin_blueprint.get("/users/<user_id:int>")
@@ -74,7 +84,7 @@ async def create_user(request):
         new_user = User(
             email=payload.email,
             full_name=payload.full_name,
-            password_hash=hash_password(payload.password),
+            password_hash=await hash_password_async(payload.password),
             role=UserRole.USER,
         )
         session.add(new_user)
@@ -119,7 +129,7 @@ async def update_user(request, user_id: int):
             user.full_name = payload.full_name
 
         if payload.password is not None:
-            user.password_hash = hash_password(payload.password)
+            user.password_hash = await hash_password_async(payload.password)
 
         await session.commit()
         await session.refresh(user)

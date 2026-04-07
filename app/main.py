@@ -11,6 +11,7 @@ if __name__ == "__main__":
     app.run(
         host=settings.app_host,
         port=settings.app_port,
+        workers=settings.app_workers,
         debug=settings.debug,
         access_log=True,
         auto_reload=False,

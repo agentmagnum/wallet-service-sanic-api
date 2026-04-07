@@ -44,6 +44,21 @@ cp .env.example .env
 Copy-Item .env.example .env
 ```
 
+Ключевые настройки:
+
+- `APP_WORKERS`:
+  количество worker-процессов Sanic. Для локального запуска по умолчанию `1`, в Docker Compose выставляется `2`.
+- `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, `DB_POOL_RECYCLE`:
+  настройки пула соединений SQLAlchemy.
+- `DB_USE_NULL_POOL`:
+  позволяет переключить SQLAlchemy на `NullPool`, если приложение будет работать за внешним PgBouncer.
+- `DB_STATEMENT_CACHE_SIZE`:
+  размер statement cache для `asyncpg`; при работе за PgBouncer в transaction pooling режиме часто имеет смысл выставлять `0`.
+- `LOGIN_RATE_LIMIT_REQUESTS`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS`:
+  мягкий rate limit для `POST /api/v1/auth/login`.
+- `WEBHOOK_RATE_LIMIT_REQUESTS`, `WEBHOOK_RATE_LIMIT_WINDOW_SECONDS`:
+  мягкий rate limit для `POST /api/v1/webhooks/payments`.
+
 ## Запуск через Docker Compose
 
 1. Создать `.env` из `.env.example`.
@@ -113,6 +128,11 @@ python -m app.main
 - `GET /api/v1/accounts`
 - `GET /api/v1/payments`
 
+Для `GET /api/v1/payments` поддерживаются опциональные query-параметры:
+
+- `limit`
+- `offset`
+
 ### Администратор
 
 - `GET /api/v1/admin/users`
@@ -120,6 +140,11 @@ python -m app.main
 - `POST /api/v1/admin/users`
 - `PATCH /api/v1/admin/users/<user_id>`
 - `DELETE /api/v1/admin/users/<user_id>`
+
+Для `GET /api/v1/admin/users` также поддерживаются опциональные query-параметры:
+
+- `limit`
+- `offset`
 
 ### Webhook платежей
 
@@ -149,4 +174,4 @@ python -m app.main
 
 - `GET /healthz` возвращает статус приложения.
 - Повторный webhook с тем же `transaction_id` не увеличивает баланс повторно и возвращает статус `duplicate`.
-
+- `POST /api/v1/auth/login` и `POST /api/v1/webhooks/payments` защищены мягким in-memory rate limit.
