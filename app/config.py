@@ -39,9 +39,8 @@ def get_settings() -> Settings:
             "DATABASE_URL",
             "postgresql+asyncpg://postgres:postgres@localhost:5432/wallet_service",
         ),
-        jwt_secret=os.getenv("JWT_SECRET", "change-me-jwt-secret"),
+        jwt_secret=os.getenv("JWT_SECRET", "change-me-jwt-secret-32-bytes-min"),
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         jwt_expire_minutes=int(os.getenv("JWT_EXPIRE_MINUTES", "60")),
         payment_secret_key=os.getenv("PAYMENT_SECRET_KEY", "change-me-payment-secret"),
     )
-
