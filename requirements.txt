@@ -1,0 +1,9 @@
+alembic
+asyncpg
+email-validator
+PyJWT
+pydantic
+python-dotenv
+sanic
+SQLAlchemy
+
